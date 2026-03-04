@@ -293,14 +293,22 @@ const StudentProfileEnhancedV2 = () => {
         source: 'live_feed'
       });
 
-      showInfo('Job saved! Opening details...');
-      
-      // Navigate to job details
-      if (job.jobUrl) {
-        window.open(job.jobUrl, '_blank');
+      showInfo('Job claimed and saved to your tracker!');
+
+      // Open the job listing
+      const url = job.source_url || job.jobUrl || job.externalUrl;
+      if (url && !url.includes('undefined')) {
+        window.open(url, '_blank');
+      } else {
+        // Fallback: search Reed for this job
+        const q = encodeURIComponent(`${job.title || job.jobTitle} ${job.company || job.employerName}`);
+        window.open(`https://www.reed.co.uk/jobs?keywords=${q}`, '_blank');
       }
     } catch (error) {
       console.error('Error claiming job:', error);
+      // Still open the job even if tracking fails
+      const url = job.source_url || job.jobUrl;
+      if (url) window.open(url, '_blank');
     }
   };
 
@@ -528,8 +536,11 @@ const StudentProfileEnhancedV2 = () => {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleJobClaim(job); }}
-                                  className="px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold text-sm cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleJobClaim(job);
+                                  }}
+                                  className="px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold text-sm cursor-pointer select-none"
                                 >
                                   Claim
                                 </button>
@@ -537,14 +548,15 @@ const StudentProfileEnhancedV2 = () => {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const url = job.jobUrl || job.externalUrl || (job.reed_job_id ? `https://www.reed.co.uk/jobs/${job.reed_job_id}` : null);
-                                    if (url) {
+                                    const url = job.source_url || job.jobUrl || job.externalUrl;
+                                    if (url && !url.includes('undefined')) {
                                       window.open(url, '_blank');
                                     } else {
-                                      navigate(`/opportunities/${job.jobId || job.reed_job_id}`);
+                                      const q = encodeURIComponent(`${job.title || job.jobTitle} ${job.company || job.employerName}`);
+                                      window.open(`https://www.reed.co.uk/jobs?keywords=${q}`, '_blank');
                                     }
                                   }}
-                                  className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-sm cursor-pointer"
+                                  className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-sm cursor-pointer select-none"
                                 >
                                   View
                                 </button>
@@ -671,12 +683,12 @@ const StudentProfileEnhancedV2 = () => {
                       </a>
 
                       <a
-                        href="/dashboard"
-                        className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors group"
+                        href="/dashboard/student/cv-review"
+                        className="flex items-center justify-between p-3 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors group"
                       >
                         <div className="flex items-center gap-2">
-                          <Settings className="w-4 h-4 text-gray-600" />
-                          <span className="text-sm font-medium text-gray-900">Profile Settings</span>
+                          <FileText className="w-4 h-4 text-amber-600" />
+                          <span className="text-sm font-medium text-gray-900">Optimise Your CV</span>
                         </div>
                         <ArrowRight className="w-4 h-4 text-gray-600 group-hover:translate-x-1 transition-transform" />
                       </a>

@@ -299,7 +299,7 @@ const getFallbackJobs = (limit = 20) => {
   return shuffled.slice(0, Math.min(limit, shuffled.length)).map(j => ({
     ...j,
     experience_level: 'Entry level',
-    source_url: `https://www.reed.co.uk/jobs/${j.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}/${j.reed_job_id}`,
+    source_url: `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(j.title + ' ' + j.company)}`,
     posted_at: new Date(Date.now() - j.posted_mins_ago * 60 * 1000).toISOString(),
     company_logo: null,
   }));
