@@ -1,0 +1,318 @@
+/**
+ * Mobile Optimizations for PlacementsPortal
+ * iOS and Android specific fixes
+ */
+
+/* ===== iOS Safe Area Insets ===== */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+
+  /* Fixed navbar with safe area */
+  nav {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+}
+
+/* ===== Prevent iOS Zoom on Input Focus ===== */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+  }
+}
+
+/* ===== Touch Target Optimization ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* Mobile devices - increase touch targets */
+  button,
+  a,
+  input[type="button"],
+  input[type="submit"],
+  .touchable {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px;
+  }
+
+  /* Larger tap areas for navigation */
+  nav a,
+  nav button {
+    padding: 14px 16px;
+  }
+}
+
+/* ===== Smooth Scrolling (iOS Performance) ===== */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Prevent overscroll bounce on iOS */
+body {
+  overscroll-behavior: none;
+}
+
+/* ===== Android Ripple Effect ===== */
+@media (hover: none) and (pointer: coarse) {
+  button:active,
+  .button:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+}
+
+/* ===== Fixed Position Fix for iOS ===== */
+.fixed-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ===== Responsive Images ===== */
+img {
+  max-width: 100%;
+  height: auto;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* ===== Modal Optimizations ===== */
+@media (max-width: 640px) {
+  .modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Full-width modals on mobile */
+  .modal-container {
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+    max-height: 100vh;
+  }
+}
+
+/* ===== Hide Scrollbars on Mobile ===== */
+@media (max-width: 768px) {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ===== Keyboard Appearance ===== */
+input,
+textarea {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ===== Pull-to-Refresh Indicator ===== */
+.pull-to-refresh {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== Landscape Orientation Fixes ===== */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Reduce header height in landscape */
+  .header-landscape-compact {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  /* Hide non-essential elements in landscape */
+  .hide-landscape {
+    display: none;
+  }
+}
+
+/* ===== Text Selection ===== */
+@media (hover: none) and (pointer: coarse) {
+  /* Better text selection on mobile */
+  * {
+    -webkit-tap-highlight-color: rgba(20, 184, 166, 0.2);
+    -webkit-touch-callout: none;
+  }
+
+  /* Allow selection for text content */
+  p,
+  span,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    -webkit-touch-callout: default;
+    user-select: text;
+  }
+}
+
+/* ===== Performance Optimizations ===== */
+@media (prefers-reduced-motion: no-preference) {
+  /* Smooth animations only when user allows */
+  * {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Disable animations for accessibility */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== iOS Status Bar ===== */
+@supports (-webkit-touch-callout: none) {
+  /* iOS-specific styles */
+  .status-bar-offset {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* ===== Android Chrome Address Bar Compensation ===== */
+@media screen and (max-width: 768px) {
+  .full-height-mobile {
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+
+  html {
+    height: -webkit-fill-available;
+  }
+}
+
+/* ===== Bottom Navigation Safe Area ===== */
+.bottom-nav {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* ===== Drawer/Sidebar Animations ===== */
+@media (max-width: 1024px) {
+  .drawer-enter {
+    transform: translateX(-100%);
+  }
+
+  .drawer-enter-active {
+    transform: translateX(0);
+    transition: transform 300ms ease-out;
+  }
+
+  .drawer-exit {
+    transform: translateX(0);
+  }
+
+  .drawer-exit-active {
+    transform: translateX(-100%);
+    transition: transform 300ms ease-in;
+  }
+}
+
+/* ===== Grid Layout Mobile Optimization ===== */
+@media (max-width: 640px) {
+  .responsive-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem;
+  }
+
+  .card {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+/* ===== Input Focus States ===== */
+@media (hover: none) and (pointer: coarse) {
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: 2px solid #14b8a6;
+    outline-offset: 2px;
+  }
+}
+
+/* ===== Prevent Double-Tap Zoom ===== */
+button,
+a {
+  touch-action: manipulation;
+}
+
+/* ===== Loading States on Mobile ===== */
+.mobile-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 25%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 75%
+  );
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ===== Haptic Feedback Indicator ===== */
+@media (hover: none) and (pointer: coarse) {
+  .haptic-feedback:active {
+    transform: scale(0.95);
+    opacity: 0.8;
+    transition: all 0.1s ease;
+  }
+}
+
+/* ===== Mobile Navigation Fixes ===== */
+@media (max-width: 1024px) {
+  .mobile-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .mobile-menu-content {
+    position: relative;
+    z-index: 51;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

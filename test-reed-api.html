@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Reed API</title>
+</head>
+<body>
+    <h1>Testing Reed API</h1>
+    <button onclick="testReed()">Test Reed API</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function testReed() {
+            const apiKey = 'a08a5760-14f1-4617-9cdf-ce91286464f0';
+            const resultEl = document.getElementById('result');
+            
+            resultEl.textContent = 'Fetching jobs from Reed API...\n';
+
+            try {
+                const apiEndpoint = 'https://www.reed.co.uk/api/1.0/search';
+                const params = new URLSearchParams({
+                    keywords: 'graduate',
+                    locationName: 'United Kingdom',
+                    distanceFromLocation: '15',
+                    permanent: 'true',
+                    graduate: 'true',
+                    resultsToTake: '5'
+                });
+
+                const authString = btoa(`${apiKey}:`);
+
+                const response = await fetch(`${apiEndpoint}?${params}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Basic ${authString}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                resultEl.textContent += `Response status: ${response.status}\n\n`;
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    resultEl.textContent += `Error: ${errorText}\n`;
+                    return;
+                }
+
+                const data = await response.json();
+                
+                resultEl.textContent += `Success! Got ${data.totalResults} total jobs\n`;
+                resultEl.textContent += `Showing ${data.results.length} jobs:\n\n`;
+                
+                data.results.forEach((job, i) => {
+                    resultEl.textContent += `${i + 1}. ${job.jobTitle}\n`;
+                    resultEl.textContent += `   Company: ${job.employerName}\n`;
+                    resultEl.textContent += `   Location: ${job.locationName}\n`;
+                    resultEl.textContent += `   URL: ${job.jobUrl}\n\n`;
+                });
+
+            } catch (error) {
+                resultEl.textContent += `\nError: ${error.message}\n`;
+                console.error('Full error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,298 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+
+    // Check if the requesting user is an admin (role stored in their Firestore profile)
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Check if requesting user is a coach
+    function isCoach() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
+    }
+
+    // ============================================
+    // API CACHE (Shared across all users)
+    // ============================================
+    match /api_cache/{document} {
+      // Anyone can read cache (public data, shared across users)
+      allow read: if true;
+
+      // Only authenticated users can write/update cache
+      // This allows the first visitor to populate cache
+      // In production with Cloud Functions, restrict to service account only
+      allow write: if request.auth != null;
+    }
+
+    // ============================================
+    // USERS
+    // ============================================
+    match /users/{userId} {
+      // Users can read their own profile; admins can read all profiles
+      allow read: if request.auth != null &&
+        (request.auth.uid == userId || isAdmin());
+
+      // Users can create/update their own profile; admins can update any
+      allow write: if request.auth != null &&
+        (request.auth.uid == userId || isAdmin());
+    }
+    
+    // ============================================
+    // OPPORTUNITIES (Job Listings)
+    // ============================================
+    match /opportunities/{opportunityId} {
+      // Anyone can read job listings (public)
+      allow read: if true;
+
+      // Only authenticated users (employers) can create jobs
+      allow create: if request.auth != null;
+
+      // Job owner or admin can update/delete
+      allow update, delete: if request.auth != null && (
+        request.auth.uid == resource.data.employerId ||
+        request.auth.uid == resource.data.created_by ||
+        isAdmin()
+      );
+    }
+    
+    // ============================================
+    // APPLICATIONS
+    // ============================================
+    match /applications/{applicationId} {
+      // Students can read their own; employers can read applications for their jobs; admins read all
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.studentId ||
+        request.auth.uid == resource.data.user_id ||
+        request.auth.uid == resource.data.employerId ||
+        isAdmin()
+      );
+
+      // Any authenticated user can create applications
+      allow create: if request.auth != null;
+
+      // Students can update their own; employers can update status; admins update any
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.studentId ||
+        request.auth.uid == resource.data.user_id ||
+        request.auth.uid == resource.data.employerId ||
+        isAdmin()
+      );
+    }
+    
+    // ============================================
+    // SAVED JOBS
+    // ============================================
+    match /saved_jobs/{savedJobId} {
+      // Users can read their own saved jobs
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.user_id;
+      
+      // Users can save jobs
+      allow create: if request.auth != null;
+      
+      // Users can delete their own saved jobs
+      allow delete: if request.auth != null && 
+        request.auth.uid == resource.data.user_id;
+    }
+    
+    // ============================================
+    // EVENTS
+    // ============================================
+    match /events/{eventId} {
+      // Anyone can read events (public)
+      allow read: if true;
+      
+      // Only authenticated users (admins) can create events
+      allow create: if request.auth != null;
+      
+      // Only event owner can update/delete
+      allow update, delete: if request.auth != null && 
+        request.auth.uid == resource.data.created_by;
+    }
+    
+    // ============================================
+    // EVENT REGISTRATIONS
+    // ============================================
+    match /eventRegistrations/{registrationId} {
+      // Users can read their own registrations
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.user_id;
+      
+      // Users can create registrations
+      allow create: if request.auth != null;
+      
+      // Admins can read all registrations
+      allow read: if request.auth != null;
+    }
+    
+    // ============================================
+    // COACHING SESSIONS
+    // ============================================
+    match /coachingSessions/{sessionId} {
+      // Students can read their own bookings; coaches can read sessions they own;
+      // admins can read all
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.studentId ||
+        request.auth.uid == resource.data.coachId ||
+        isAdmin()
+      );
+
+      // Any authenticated user can create a session booking
+      allow create: if request.auth != null;
+
+      // Coaches can update their own sessions; admins can update any
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.coachId ||
+        isAdmin()
+      );
+
+      // Only admins can delete sessions
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // VIDEO PITCHES
+    // ============================================
+    match /video_pitches/{pitchId} {
+      // Public pitches can be read by anyone (for sharing)
+      allow read: if resource.data.is_public == true;
+      
+      // Users can read their own pitches
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.user_id;
+      
+      // Users can create pitches
+      allow create: if request.auth != null;
+      
+      // Users can update their own pitches
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.user_id;
+    }
+    
+    // ============================================
+    // CV OPTIMIZATIONS
+    // ============================================
+    match /cv_optimizations/{optimizationId} {
+      // Users can read their own optimizations
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.user_id;
+      
+      // Users can create optimizations
+      allow create: if request.auth != null;
+    }
+    
+    // ============================================
+    // PURCHASE HISTORY
+    // ============================================
+    match /purchase_history/{purchaseId} {
+      // Users can read their own purchase history
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.user_id;
+      
+      // Users can create purchase records
+      allow create: if request.auth != null;
+    }
+    
+    // ============================================
+    // API USAGE LOGS (Optional monitoring)
+    // ============================================
+    match /api_usage_logs/{logId} {
+      // Anyone can write logs (for monitoring)
+      allow create: if true;
+      
+      // Only admins can read logs
+      allow read: if request.auth != null;
+    }
+    
+    // ============================================
+    // TALENT MATCHES (AI Matching Engine)
+    // ============================================
+    match /talent_matches/{matchId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.employerId ||
+        request.auth.uid == resource.data.candidateId ||
+        isAdmin()
+      );
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.employerId ||
+        isAdmin()
+      );
+    }
+
+    // ============================================
+    // TALENT PIPELINES
+    // ============================================
+    match /talent_pipelines/{pipelineId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.employerId ||
+        isAdmin()
+      );
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.employerId ||
+        isAdmin()
+      );
+
+      // Pipeline candidates subcollection
+      match /candidates/{candidateDocId} {
+        allow read: if request.auth != null;
+        allow create, update: if request.auth != null;
+      }
+    }
+
+    // ============================================
+    // OUTREACH CAMPAIGNS
+    // ============================================
+    match /outreach_campaigns/{campaignId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.ownerId ||
+        isAdmin()
+      );
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.ownerId ||
+        isAdmin()
+      );
+
+      // Campaign recipients subcollection
+      match /recipients/{recipientId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+
+    // ============================================
+    // OUTREACH LOG
+    // ============================================
+    match /outreach_log/{logId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+
+    // ============================================
+    // BILLING EVENTS (Revenue Tracking)
+    // ============================================
+    match /billing_events/{eventId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.employerId ||
+        isAdmin()
+      );
+      allow create: if request.auth != null;
+      allow update: if isAdmin();
+    }
+
+    // ============================================
+    // DENY ALL OTHER ACCESS
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

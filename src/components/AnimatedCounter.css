@@ -1,0 +1,38 @@
+.animated-counter {
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.counter-number {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+}
+
+.counter-label {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@media (max-width: 768px) {
+  .animated-counter {
+    padding: 1rem;
+  }
+
+  .counter-number {
+    margin-bottom: 0.5rem;
+  }
+
+  .counter-label {
+    font-size: 0.875rem;
+  }
+}

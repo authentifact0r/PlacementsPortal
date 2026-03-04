@@ -1,0 +1,116 @@
+/* Import Plus Jakarta Sans Font */
+@import '@fontsource/plus-jakarta-sans/300.css';
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+@import '@fontsource/plus-jakarta-sans/600.css';
+@import '@fontsource/plus-jakarta-sans/700.css';
+@import '@fontsource/plus-jakarta-sans/800.css';
+
+/* Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base Styles */
+@layer base {
+  * {
+    @apply border-slate-800;
+  }
+
+  body {
+    @apply bg-slate-900 text-slate-100 antialiased;
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tighter;
+  }
+
+  /* ── Global input readability fix ──────────────────────────────────────
+     Body defaults to text-slate-100 (near-white). Any input/textarea/select
+     that sits on a white/light background inherits that colour and becomes
+     invisible. Force dark text on all form elements so typed text is always
+     readable, regardless of whether the component author remembered to add
+     text-gray-900 explicitly.
+  ─────────────────────────────────────────────────────────────────────── */
+  input,
+  textarea,
+  select {
+    color: #111827;          /* = text-gray-900 */
+    caret-color: #111827;
+  }
+
+  /* Placeholder text should be softer but still visible */
+  input::placeholder,
+  textarea::placeholder {
+    color: #9ca3af;          /* = text-gray-400 */
+    opacity: 1;
+  }
+}
+
+/* Custom Utilities */
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-purple-500;
+  }
+  
+  .mesh-gradient {
+    background: radial-gradient(circle at 80% 20%, rgba(45, 212, 191, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 50%);
+  }
+  
+  .card-hover {
+    @apply transition-all duration-300 hover:border-teal-500/50 hover:shadow-lg hover:shadow-teal-500/10;
+  }
+}
+
+/* Custom Components */
+@layer components {
+  .btn-primary {
+    @apply px-6 py-3 bg-teal-500 text-slate-900 font-semibold rounded-lg 
+           transition-all duration-300 hover:bg-teal-400 
+           hover:shadow-[0_0_20px_rgba(45,212,191,0.3)]
+           focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 focus:ring-offset-slate-900;
+  }
+  
+  .btn-secondary {
+    @apply px-6 py-3 bg-slate-800 text-slate-100 font-semibold rounded-lg border border-slate-700
+           transition-all duration-300 hover:bg-slate-700 hover:border-slate-600
+           focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-slate-900;
+  }
+  
+  .badge {
+    @apply px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs font-medium;
+  }
+  
+  .bento-card {
+    @apply bg-slate-800/50 backdrop-blur-sm border border-slate-800 rounded-2xl p-8 
+           transition-all duration-300 hover:border-teal-500/50;
+  }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-700 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-600;
+}
+
+/* Selection */
+::selection {
+  @apply bg-teal-500/30 text-teal-100;
+}
+
+::-moz-selection {
+  @apply bg-teal-500/30 text-teal-100;
+}
