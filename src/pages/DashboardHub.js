@@ -291,8 +291,8 @@ const DashboardHub = () => {
     : [
         { icon: Search,      label: 'Browse Jobs',      sublabel: 'Find opportunities',      color: 'violet', onClick: () => navigate('/opportunities')       },
         { icon: Video,       label: 'Video Pitch',      sublabel: 'Record & upload',         color: 'sky',    onClick: () => navigate('/studio')              },
-        { icon: FileText,    label: 'Optimise CV',      sublabel: 'AI-powered review',       color: 'amber',  onClick: () => navigate('/pricing/student')     },
-        { icon: BookOpen,    label: 'Career Coaching',  sublabel: 'Book a session',          color: 'green',  onClick: () => navigate('/pricing/student')     }
+        { icon: FileText,    label: 'Optimise CV',      sublabel: 'AI-powered review',       color: 'amber',  onClick: () => navigate('/dashboard/student/cv-review')  },
+        { icon: BookOpen,    label: 'Career Coaching',  sublabel: 'Book a session',          color: 'green',  onClick: () => navigate('/dashboard/student/coaching')   }
       ];
 
   if (loadingData) {
@@ -741,12 +741,12 @@ const DashboardHub = () => {
             </div>
             <div className="space-y-3">
               {[
-                { label: 'Complete your profile',         done: !!userProfile?.profile?.fullName,  action: '/resources'     },
-                { label: 'Upload or optimise your CV',    done: false,                              action: '/resources'     },
-                { label: 'Browse & save 5 jobs',          done: (stats.saved || 0) >= 5,           action: '/opportunities' },
-                { label: 'Submit your first application', done: (stats.applications || 0) >= 1,    action: '/opportunities' },
-                { label: 'Book a coaching session',       done: false,                              action: '/community'     },
-                { label: 'Record a video pitch',          done: false,                              action: '/studio'        }
+                { label: 'Complete your profile',         done: !!userProfile?.profile?.fullName,  action: '/dashboard/student'            },
+                { label: 'Upload or optimise your CV',    done: false,                              action: '/dashboard/student/cv-review'  },
+                { label: 'Browse & save 5 jobs',          done: (stats.saved || 0) >= 5,           action: '/opportunities'                },
+                { label: 'Submit your first application', done: (stats.applications || 0) >= 1,    action: '/opportunities'                },
+                { label: 'Book a coaching session',       done: false,                              action: '/dashboard/student/coaching'   },
+                { label: 'Record a video pitch',          done: false,                              action: '/studio'                       }
               ].map((item, i) => (
                 <motion.div
                   key={i}

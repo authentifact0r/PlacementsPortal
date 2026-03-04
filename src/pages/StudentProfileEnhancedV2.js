@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User,
   Video,
@@ -47,8 +47,17 @@ const StudentProfileEnhancedV2 = () => {
   const { currentUser, userProfile } = useAuth();
   const { showInfo } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [activeTab, setActiveTab] = useState('overview');
+  // Derive initial tab from URL path (e.g. /dashboard/student/cv-review → 'cv-review')
+  const getTabFromPath = () => {
+    const segments = location.pathname.split('/');
+    const lastSeg = segments[segments.length - 1];
+    const validTabs = ['overview', 'applications', 'events', 'tasks', 'cv-review', 'coaching', 'ai-applier'];
+    return validTabs.includes(lastSeg) ? lastSeg : 'overview';
+  };
+
+  const [activeTab, setActiveTab] = useState(getTabFromPath);
   const [applications, setApplications] = useState([]);
   // eslint-disable-next-line no-unused-vars
   const [stats, setStats] = useState({}); // TODO: render application stats in UI
