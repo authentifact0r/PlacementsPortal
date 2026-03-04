@@ -507,7 +507,7 @@ const StudentProfileEnhancedV2 = () => {
                           {liveJobs.map((job, index) => (
                             <div
                               key={index}
-                              className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50/50 transition-all group"
+                              className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50/50 transition-all group cursor-default"
                             >
                               <div className="flex items-center gap-3 flex-1 min-w-0">
                                 <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -527,14 +527,24 @@ const StudentProfileEnhancedV2 = () => {
                                   Posted today
                                 </div>
                                 <button
-                                  onClick={() => handleJobClaim(job)}
-                                  className="px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold text-sm"
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); handleJobClaim(job); }}
+                                  className="px-3 py-1.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors font-semibold text-sm cursor-pointer"
                                 >
                                   Claim
                                 </button>
                                 <button
-                                  onClick={() => job.jobUrl && window.open(job.jobUrl, '_blank')}
-                                  className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-sm"
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const url = job.jobUrl || job.externalUrl || (job.reed_job_id ? `https://www.reed.co.uk/jobs/${job.reed_job_id}` : null);
+                                    if (url) {
+                                      window.open(url, '_blank');
+                                    } else {
+                                      navigate(`/opportunities/${job.jobId || job.reed_job_id}`);
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-sm cursor-pointer"
                                 >
                                   View
                                 </button>
@@ -572,28 +582,44 @@ const StudentProfileEnhancedV2 = () => {
                     <div className="p-6">
                       {tasks.length > 0 ? (
                         <div className="space-y-3">
-                          {tasks.map((task) => (
-                            <div
-                              key={task.id}
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                                  task.status === 'completed' ? 'bg-green-500' : 'bg-gray-300'
-                                }`}>
-                                  {task.status === 'completed' && (
-                                    <CheckCircle className="w-3 h-3 text-white" />
+                          {tasks.map((task) => {
+                            const taskRoutes = {
+                              'Complete profile setup': '/dashboard/student',
+                              'Upload CV': '/dashboard/student/cv-review',
+                              'Book career coaching session': '/dashboard/student/coaching'
+                            };
+                            const taskRoute = taskRoutes[task.title];
+                            return (
+                              <div
+                                key={task.id}
+                                onClick={() => taskRoute && task.status !== 'completed' && navigate(taskRoute)}
+                                className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors ${
+                                  taskRoute && task.status !== 'completed' ? 'cursor-pointer' : ''
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                                    task.status === 'completed' ? 'bg-green-500' : 'bg-gray-300'
+                                  }`}>
+                                    {task.status === 'completed' && (
+                                      <CheckCircle className="w-3 h-3 text-white" />
+                                    )}
+                                  </div>
+                                  <span className={`font-medium text-sm ${
+                                    task.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-900'
+                                  }`}>
+                                    {task.title}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-600">Due: {task.due}</span>
+                                  {taskRoute && task.status !== 'completed' && (
+                                    <ArrowRight className="w-3 h-3 text-gray-400" />
                                   )}
                                 </div>
-                                <span className={`font-medium text-sm ${
-                                  task.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-900'
-                                }`}>
-                                  {task.title}
-                                </span>
                               </div>
-                              <span className="text-xs text-gray-600">Due: {task.due}</span>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="text-center py-8 text-gray-500">No tasks found</div>
