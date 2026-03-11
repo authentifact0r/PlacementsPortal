@@ -486,7 +486,7 @@ export default function Pricing() {
     <div className="min-h-screen bg-gray-50">
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <div className={`pt-32 pb-24 text-center relative overflow-hidden ${
+      <div className={`pt-12 pb-24 text-center relative overflow-hidden ${
         isEmployer
           ? 'bg-gradient-to-br from-slate-900 via-sky-950 to-slate-900'
           : 'bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900'

@@ -213,7 +213,7 @@ const OperatorDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] pt-20">
+    <div className="bg-[#020617]" style={{ minHeight: '100%' }}>
       {/* Header */}
       <div className="border-b border-slate-800 bg-[#0a0f1e]">
         <div className="container mx-auto px-6 lg:px-8 py-6">

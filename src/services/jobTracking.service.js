@@ -30,19 +30,19 @@ const jobTrackingService = {
       
       await setDoc(clickRef, {
         userId,
-        jobId: jobData.jobId,
-        jobTitle: jobData.jobTitle || jobData.title,
-        company: jobData.company || jobData.employerName,
-        location: jobData.location || jobData.locationName,
-        salary: jobData.salary || jobData.minimumSalary,
+        jobId: jobData.jobId || '',
+        jobTitle: jobData.jobTitle || jobData.title || '',
+        company: jobData.company || jobData.employerName || '',
+        location: jobData.location || jobData.locationName || '',
+        salary: jobData.salary || jobData.minimumSalary || null,
         source: jobData.source || 'reed',
         clickedAt: serverTimestamp(),
         applied: false,
         status: 'clicked',
         metadata: {
-          jobType: jobData.jobType,
-          expirationDate: jobData.expirationDate,
-          jobUrl: jobData.jobUrl
+          jobType: jobData.jobType || null,
+          expirationDate: jobData.expirationDate || null,
+          jobUrl: jobData.jobUrl || null
         }
       });
 
@@ -64,36 +64,37 @@ const jobTrackingService = {
       
       await setDoc(applicationRef, {
         userId,
-        jobId: jobData.jobId,
-        jobTitle: jobData.jobTitle || jobData.title,
-        company: jobData.company || jobData.employerName,
-        location: jobData.location || jobData.locationName,
-        salary: jobData.salary || jobData.minimumSalary,
+        jobId: jobData.jobId || '',
+        jobTitle: jobData.jobTitle || jobData.title || '',
+        company: jobData.company || jobData.employerName || '',
+        location: jobData.location || jobData.locationName || '',
+        salary: jobData.salary || jobData.minimumSalary || null,
         source: jobData.source || 'reed',
         appliedAt: serverTimestamp(),
-        status: 'pending',
-        
+        status: applicationData.status || 'pending',
+
         // Application details
-        applicationMethod: applicationData.method || 'external', // external, platform, email
-        cvVersion: applicationData.cvVersion,
+        applicationMethod: applicationData.method || 'external',
+        cvVersion: applicationData.cvVersion || null,
         coverLetter: applicationData.coverLetter || false,
         notes: applicationData.notes || '',
-        
+        sourceUrl: jobData.sourceUrl || applicationData.sourceUrl || '',
+
         // Tracking data
         clickedBefore: applicationData.clickedBefore || false,
         timeToApply: applicationData.timeToApply || null,
-        
+
         // Status tracking
         statusHistory: [{
-          status: 'pending',
+          status: applicationData.status || 'pending',
           timestamp: Timestamp.now(),
-          note: 'Application submitted'
+          note: applicationData.status === 'saved' ? 'Job saved for later' : 'Application submitted'
         }],
-        
+
         metadata: {
-          jobType: jobData.jobType,
-          expirationDate: jobData.expirationDate,
-          jobUrl: jobData.jobUrl,
+          jobType: jobData.jobType || null,
+          expirationDate: jobData.expirationDate || null,
+          jobUrl: jobData.jobUrl || null,
           userAgent: navigator.userAgent
         }
       });

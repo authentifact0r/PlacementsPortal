@@ -158,7 +158,7 @@ const AdminPremiumGrant = () => {
   // Not logged in at all
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-24 flex items-center justify-center">
+      <div className="bg-gray-50 flex items-center justify-center">
         <div className="text-center max-w-sm">
           <LogIn className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <h2 className="text-xl font-bold text-gray-700">Sign In Required</h2>
@@ -172,7 +172,7 @@ const AdminPremiumGrant = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24">
+    <div className="bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">

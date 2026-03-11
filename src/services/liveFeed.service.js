@@ -23,6 +23,30 @@ import { db } from './firebase';
 // Cache duration: 30 minutes (shared across all users)
 const CACHE_DURATION_MS = 30 * 60 * 1000;
 
+// Maximum stale cache age: 4 hours — beyond this, stale data is discarded
+const MAX_STALE_AGE_MS = 4 * 60 * 60 * 1000;
+
+// localStorage cache TTL: 2 hours
+const LOCAL_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
+
+// ── Blocked employers ─────────────────────────────────────────────────────────
+// These companies disguise paid training courses as job listings.
+// Matching is case-insensitive and uses .includes() so partial matches work.
+const BLOCKED_EMPLOYERS = [
+  'itol recruit',
+  'itol',
+  'the it career switch',
+  'career switch',
+  'just it training',
+  'just it recruitment',
+  'techtalent academy',
+  'qa limited',         // QA Ltd training courses disguised as jobs
+  'generation uk',      // bootcamp disguised as jobs
+  'futurelearn',
+  'learning people',
+  'pitman training',
+];
+
 // ============================================
 // 1. DATA FETCHING (THE PROVIDER)
 // ============================================
@@ -40,23 +64,33 @@ export const fetchReedJobs = async (options = {}) => {
     limit = 20,
   } = options;
 
+  // Simplify location for Reed API — strip ", UK" / ", United Kingdom" suffixes
+  // that cause Reed to pick wrong locations (e.g. "London, UK" → "London Luton Airport")
+  const cleanLocation = location
+    .replace(/,?\s*(UK|United Kingdom|England|Scotland|Wales)$/i, '')
+    .trim() || 'London';
+
   const params = new URLSearchParams({
     keywords,
-    locationName: location,
+    locationName: cleanLocation,
+    distancefromlocation: '50',
     resultsToTake: Math.min(limit, 100).toString(),
   });
 
-  // ── Strategy 1: local proxy server (run: node reed-proxy-server.js) ──
+  // ── Strategy 1: Firebase Cloud Function proxy (production) ──
   const proxyEndpoint = process.env.REACT_APP_REED_API_ENDPOINT;
   if (proxyEndpoint) {
     try {
       const proxyUrl = `${proxyEndpoint}?${params}`;
       console.log('📡 Trying Reed proxy:', proxyUrl);
-      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) });
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
       if (res.ok) {
         const data = await res.json();
         const results = (data.results || []).map(transformReedJobData);
-        return deduplicateByKey(results);
+        if (results.length > 0) {
+          console.log(`✅ Got ${results.length} live jobs from Reed API proxy`);
+          return deduplicateByKey(results);
+        }
       }
     } catch (e) {
       console.warn('Reed proxy unavailable — trying direct call:', e.message);
@@ -78,7 +112,10 @@ export const fetchReedJobs = async (options = {}) => {
       if (res.ok) {
         const data = await res.json();
         const results = (data.results || []).map(transformReedJobData);
-        return deduplicateByKey(results);
+        if (results.length > 0) {
+          console.log(`✅ Got ${results.length} live jobs via direct Reed API call`);
+          return deduplicateByKey(results);
+        }
       }
     } catch (e) {
       console.warn('Direct Reed call blocked (CORS/network) — using fallback:', e.message);
@@ -86,14 +123,60 @@ export const fetchReedJobs = async (options = {}) => {
   }
 
   // ── Strategy 3: shuffled realistic fallback pool ──
-  console.info('ℹ️  Using fallback job pool. To get live Reed data run: node reed-proxy-server.js');
+  console.info('ℹ️  Using fallback job pool. Deploy Cloud Functions with REED_API_KEY secret for live data.');
   return getFallbackJobs(limit);
 };
 
-/** Deduplicate by reed_job_id then title|company */
+/**
+ * Fetch Reed jobs with automatic retry using broader keywords if blocking
+ * removes all results. This prevents empty pages when scam employers
+ * dominate narrow searches.
+ */
+export const fetchReedJobsWithRetry = async (options = {}) => {
+  // First attempt with original keywords
+  const results = await fetchReedJobs(options);
+  if (results.length > 0) return results;
+
+  // If empty (likely all blocked), retry with broader keywords
+  const broaderSearches = [
+    { keywords: 'graduate scheme', location: options.location || 'London' },
+    { keywords: 'junior entry level', location: options.location || 'London' },
+    { keywords: 'intern placement year', location: options.location || 'United Kingdom' },
+    { keywords: 'trainee graduate programme', location: 'United Kingdom' },
+  ];
+
+  console.log('🔄 Original search returned 0 results after filtering. Trying broader keywords...');
+  for (const search of broaderSearches) {
+    try {
+      const broader = await fetchReedJobs({ ...options, ...search });
+      if (broader.length > 0) {
+        console.log(`✅ Broader search "${search.keywords}" returned ${broader.length} jobs`);
+        return broader;
+      }
+    } catch (_) { /* try next */ }
+  }
+
+  // All retries failed — return fallback
+  console.log('⚠️ All broader searches empty. Using fallback pool.');
+  return getFallbackJobs(options.limit || 20);
+};
+
+/** Check if an employer is on the blocklist */
+const isBlockedEmployer = (companyName) => {
+  if (!companyName) return false;
+  const name = companyName.toLowerCase().trim();
+  return BLOCKED_EMPLOYERS.some(blocked => name.includes(blocked));
+};
+
+/** Deduplicate by reed_job_id then title|company, and filter out blocked employers */
 const deduplicateByKey = (jobs) => {
   const seen = new Set();
   return jobs.filter(job => {
+    // Block misleading training companies disguised as job listings
+    if (isBlockedEmployer(job.company)) {
+      console.log(`🚫 Blocked misleading employer: "${job.company}" — "${job.title}"`);
+      return false;
+    }
     const key = job.reed_job_id ? String(job.reed_job_id) : `${job.title}|${job.company}`;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -296,13 +379,18 @@ const FALLBACK_POOL = [
 const getFallbackJobs = (limit = 20) => {
   // Shuffle a fresh copy on every call so each render/refresh shows different jobs
   const shuffled = [...FALLBACK_POOL].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, Math.min(limit, shuffled.length)).map(j => ({
-    ...j,
-    experience_level: 'Entry level',
-    source_url: `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(j.title + ' ' + j.company)}`,
-    posted_at: new Date(Date.now() - j.posted_mins_ago * 60 * 1000).toISOString(),
-    company_logo: null,
-  }));
+  return shuffled.slice(0, Math.min(limit, shuffled.length)).map(j => {
+    // Use Google Jobs URL so we don't redirect users away to Reed search
+    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(j.title + ' ' + j.company + ' job')}&ibp=htl;jobs`;
+    return {
+      ...j,
+      experience_level: 'Entry level',
+      source: 'fallback',
+      source_url: googleUrl,
+      posted_at: new Date(Date.now() - j.posted_mins_ago * 60 * 1000).toISOString(),
+      company_logo: null,
+    };
+  });
 };
 
 // ============================================
@@ -480,8 +568,10 @@ export const getActiveLiveFeedJobs = async (options = {}) => {
               };
             });
             
-            // Filter out expired jobs (> 30 mins old)
-            const activeJobs = updatedJobs.filter(job => !job.time_remaining.expired);
+            // Filter out expired jobs (> 30 mins old) and blocked employers
+            const activeJobs = updatedJobs.filter(job =>
+              !job.time_remaining.expired && !isBlockedEmployer(job.company)
+            );
             
             console.log(`🔥 ${activeJobs.length} active jobs from cache (${updatedJobs.length - activeJobs.length} expired)`);
             
@@ -506,12 +596,12 @@ export const getActiveLiveFeedJobs = async (options = {}) => {
     console.log('🔵 Fetching live feed jobs from Reed API...');
     console.log('📊 This API call will be shared with all users for 30 minutes');
     
-    // Fetch fresh jobs from Reed API (posted recently)
-    const freshJobs = await fetchReedJobs({
-      keywords: 'graduate',
-      location: 'United Kingdom',
-      limit: 20, // Get 20 fresh jobs
-      distanceFromLocation: 15,
+    // Fetch fresh jobs from Reed API with retry (targeted toward graduates and interns)
+    const freshJobs = await fetchReedJobsWithRetry({
+      keywords: 'graduate engineer developer data analyst intern placement',
+      location: 'London',
+      limit: 20,
+      distanceFromLocation: 50,
       permanent: true
     });
 
@@ -580,26 +670,56 @@ export const getActiveLiveFeedJobs = async (options = {}) => {
     console.error('❌ Error fetching active live feed jobs:', error);
     
     // ============================================
-    // STEP 4: Fallback to stale cache if API fails
+    // STEP 4: Fallback to stale cache if API fails (max 4 hours)
     // ============================================
     try {
       const cacheRef = doc(db, 'api_cache', 'reed_live_feed');
       const cacheDoc = await getDoc(cacheRef);
-      
+
       if (cacheDoc.exists()) {
-        console.log('⚠️ Reed API failed, using stale cache as fallback');
         const cacheData = cacheDoc.data();
         const cacheAge = Date.now() - cacheData.fetched_at.toMillis();
         const cacheAgeMinutes = Math.floor(cacheAge / 1000 / 60);
-        console.log(`📦 Stale cache age: ${cacheAgeMinutes} minutes`);
-        
-        return cacheData.jobs;
+
+        // Only serve stale data if it's less than 4 hours old
+        if (cacheAge < MAX_STALE_AGE_MS) {
+          console.log(`⚠️ Reed API failed, using stale cache (age: ${cacheAgeMinutes} mins)`);
+          return (cacheData.jobs || []).filter(j => !isBlockedEmployer(j.company));
+        } else {
+          console.warn(`🗑️ Stale cache too old (${cacheAgeMinutes} mins > 240 mins). Discarding.`);
+          // Delete the stale cache so it won't be served again
+          try { await deleteDoc(cacheRef); } catch (_) {}
+        }
       }
     } catch (fallbackError) {
       console.error('❌ No cache available for fallback:', fallbackError);
     }
-    
-    // Last resort: return empty array
+
+    // Last resort: fetch fresh data (force bypass cache)
+    console.log('🔄 All caches expired. Attempting fresh Reed API fetch...');
+    try {
+      const emergencyJobs = await fetchReedJobs({
+        keywords: 'graduate',
+        location: 'United Kingdom',
+        limit: 10,
+      });
+      if (emergencyJobs.length > 0) {
+        console.log(`✅ Emergency fetch got ${emergencyJobs.length} jobs`);
+        return emergencyJobs.map((job, index) => ({
+          id: `reed-live-${job.reed_job_id || index}`,
+          ...job,
+          expires_at: calculateExpiryTime(),
+          is_active: true,
+          fetched_at: Timestamp.now(),
+          fetch_time: new Date().toISOString(),
+          time_remaining: { expired: false, minutes: 30, seconds: 0, totalSeconds: 1800 }
+        }));
+      }
+    } catch (retryErr) {
+      console.error('❌ Emergency fetch also failed:', retryErr.message);
+    }
+
+    // Absolute last resort: return empty array (UI shows "no jobs right now")
     console.log('⚠️ No data available, returning empty array');
     return [];
   }
@@ -671,24 +791,38 @@ export const getJobForRedirect = async (jobId) => {
     // Handle Reed jobs (IDs starting with "reed-" or "reed-live-")
     if (jobId.startsWith('reed-')) {
       console.log('Detected Reed job ID, checking localStorage for job data');
-      
+
       // Try to get job data from localStorage (stored when fetched from Reed API)
       try {
-        // Check both main cache and live feed cache
-        const reedJobsData = localStorage.getItem('reed_jobs_cache');
-        const liveFeedData = localStorage.getItem('reed_live_jobs_cache');
-        
+        // Check both main cache and live feed cache (with TTL validation)
+        const reedJobsRaw = localStorage.getItem('reed_jobs_cache');
+        const liveFeedRaw = localStorage.getItem('reed_live_jobs_cache');
+
+        // Parse with TTL check — discard caches older than LOCAL_CACHE_TTL_MS
+        const parseWithTTL = (raw) => {
+          if (!raw) return null;
+          try {
+            const parsed = JSON.parse(raw);
+            // If it's an object with a _cachedAt timestamp, check TTL
+            if (parsed._cachedAt && (Date.now() - parsed._cachedAt > LOCAL_CACHE_TTL_MS)) {
+              return null; // Expired
+            }
+            return Array.isArray(parsed) ? parsed : (parsed.jobs || parsed);
+          } catch { return null; }
+        };
+
+        const reedJobs = parseWithTTL(reedJobsRaw);
+        const liveJobs = parseWithTTL(liveFeedRaw);
+
         let reedJob = null;
-        
+
         // Try main cache first
-        if (reedJobsData) {
-          const reedJobs = JSON.parse(reedJobsData);
+        if (reedJobs && Array.isArray(reedJobs)) {
           reedJob = reedJobs.find(j => `reed-${j.reed_job_id}` === jobId || j.id === jobId);
         }
-        
+
         // Try live feed cache if not found
-        if (!reedJob && liveFeedData) {
-          const liveJobs = JSON.parse(liveFeedData);
+        if (!reedJob && liveJobs && Array.isArray(liveJobs)) {
           reedJob = liveJobs.find(j => j.id === jobId || `reed-${j.reed_job_id}` === jobId || `reed-live-${j.reed_job_id}` === jobId);
         }
         
@@ -981,12 +1115,12 @@ export const runLiveFeedSyncCycle = async () => {
   try {
     console.log('Starting live feed sync cycle...');
 
-    // 1. Fetch new jobs from Reed API (UK graduate jobs)
-    const jobs = await fetchReedJobs({
+    // 1. Fetch new jobs from Reed API (UK graduate jobs) with retry
+    const jobs = await fetchReedJobsWithRetry({
       keywords: 'graduate',
       location: 'United Kingdom',
       limit: 20,
-      distanceFromLocation: 15,
+      distanceFromLocation: 50,
       permanent: true
     });
 
@@ -1024,6 +1158,7 @@ export const runLiveFeedSyncCycle = async () => {
 export const liveFeedService = {
   // Fetching (Reed UK only)
   fetchReedJobs,
+  fetchReedJobsWithRetry,
   
   // Sync
   syncJobsToLiveFeed,

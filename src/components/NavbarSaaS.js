@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, ChevronDown, User, Calendar, Users, GraduationCap, Images, Video, LogOut, UserCircle, Zap, Briefcase, Mail, TrendingUp } from 'lucide-react';
+import { Menu, X, ChevronDown, User, Calendar, Users, GraduationCap, Images, Video, LogOut, UserCircle, Zap, Briefcase, Mail, TrendingUp, ClipboardList } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import ProfileSettingsModal from './ProfileSettingsModal';
 
@@ -337,6 +337,26 @@ const NavbarSaaS = () => {
                         >
                           <Briefcase className="w-4 h-4 text-purple-400" />
                           Talent Pipeline
+                        </Link>
+                      )}
+                      {(userProfile?.role === 'graduate' || userProfile?.role === 'student') && (
+                        <Link
+                          to="/complete-profile"
+                          className="flex items-center gap-2 px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 transition-colors group"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          <User className="w-4 h-4 text-blue-400 group-hover:text-blue-300" />
+                          <span>Complete Profile</span>
+                        </Link>
+                      )}
+                      {(userProfile?.role === 'graduate' || userProfile?.role === 'student') && (
+                        <Link
+                          to="/job-tracker"
+                          className="flex items-center gap-2 px-4 py-3 text-sm text-slate-300 hover:bg-slate-700 transition-colors group"
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          <ClipboardList className="w-4 h-4 text-emerald-400 group-hover:text-emerald-300" />
+                          <span>Job Tracker</span>
                         </Link>
                       )}
                       {(userProfile?.role === 'graduate' || userProfile?.role === 'student') && (

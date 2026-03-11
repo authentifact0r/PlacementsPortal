@@ -18,6 +18,18 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'coach';
     }
 
+    // Check if requesting user is an employer
+    function isEmployer() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employer';
+    }
+
+    // Check if requesting user is a student
+    function isStudent() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
+    }
+
     // ============================================
     // API CACHE (Shared across all users)
     // ============================================
@@ -42,6 +54,13 @@ service cloud.firestore {
       // Users can create/update their own profile; admins can update any
       allow write: if request.auth != null &&
         (request.auth.uid == userId || isAdmin());
+
+      // ── Job Applications subcollection (Job Tracker) ──
+      // Strict isolation: only the owning user can read/write their own applications
+      match /applications/{applicationId} {
+        allow read, write: if request.auth != null &&
+          request.auth.uid == userId;
+      }
     }
     
     // ============================================
@@ -286,6 +305,110 @@ service cloud.firestore {
       );
       allow create: if request.auth != null;
       allow update: if isAdmin();
+    }
+
+    // ============================================
+    // JOBS (Synced from external APIs by Cloud Function)
+    // ============================================
+    match /jobs/{jobId} {
+      // All authenticated users can read synced job listings
+      allow read: if request.auth != null;
+
+      // Only admins can manually create/update/delete
+      // (Cloud Functions use Admin SDK which bypasses rules)
+      allow write: if isAdmin();
+    }
+
+    // ============================================
+    // JOB ROLE TAXONOMY (Shared reference data)
+    // ============================================
+    match /job_roles/{roleId} {
+      // All authenticated users can read the taxonomy
+      allow read: if request.auth != null;
+
+      // Only admins can create/update/delete taxonomy entries
+      allow write: if isAdmin();
+
+      // Nested functions and levels
+      match /functions/{functionId} {
+        allow read: if request.auth != null;
+        allow write: if isAdmin();
+      }
+    }
+
+    // ============================================
+    // GLOBAL STATS (Read-only aggregate counters)
+    // ============================================
+    match /global_stats/{statId} {
+      // All authenticated users can read global stats
+      // (e.g. total applications, popular industries, avg time-to-offer)
+      allow read: if request.auth != null;
+
+      // Only admins (or Cloud Functions) can write stats
+      // In production, restrict to service account only
+      allow write: if isAdmin();
+    }
+
+    // ============================================
+    // JOB APPLICATIONS (Job Tracker — saved/applied jobs)
+    // ============================================
+    match /job_applications/{applicationId} {
+      // Users can read their own tracked applications
+      allow read: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+
+      // Any authenticated user can create a tracked application
+      allow create: if request.auth != null;
+
+      // Users can update their own tracked applications (status changes)
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+    }
+
+    // ============================================
+    // JOB CLICKS (Analytics tracking)
+    // ============================================
+    match /job_clicks/{clickId} {
+      // Users can read their own click history
+      allow read: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+
+      // Any authenticated user can log a click
+      allow create: if request.auth != null;
+
+      // Allow updating click records (e.g. marking as applied)
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+    }
+
+    // ============================================
+    // AI APPLIER PREFERENCES
+    // ============================================
+    match /ai_applier_prefs/{userId} {
+      allow read, write: if request.auth != null &&
+        request.auth.uid == userId;
+    }
+
+    // ============================================
+    // AI APPLICATIONS (Legacy queue)
+    // ============================================
+    match /ai_applications/{applicationId} {
+      allow read: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+    }
+
+    // ============================================
+    // TAILORED APPLICATIONS (AI Concierge)
+    // ============================================
+    match /tailored_applications/{applicationId} {
+      allow read: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.userId;
     }
 
     // ============================================

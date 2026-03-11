@@ -22,8 +22,59 @@ import {
 const JobDetailModal = ({ job, onClose }) => {
   if (!job) return null;
 
-  // Build a Reed search URL — user clicks this manually (avoids session issue)
-  const reedSearchUrl = `https://www.reed.co.uk/jobs?keywords=${encodeURIComponent(job.title || 'graduate')}&location=${encodeURIComponent(job.location || 'United Kingdom')}`;
+  // Determine the correct apply URL and label based on job source
+  const jobSource = (job.source || '').toLowerCase();
+  const directUrl = [job.sourceUrl, job.source_url].find(u => u && u !== '#' && u !== '') || '';
+  const isReedDirectUrl = directUrl.includes('reed.co.uk/jobs/') && !directUrl.includes('?keywords');
+  const isReedSearchUrl = directUrl.includes('reed.co.uk/jobs?keywords');
+
+  // Google Jobs fallback — keeps candidates on neutral ground
+  const googleJobsUrl = `https://www.google.com/search?q=${encodeURIComponent((job.title || 'graduate') + ' ' + (job.company || '') + ' job')}&ibp=htl;jobs`;
+
+  let applyUrl, applyLabel, applyNote;
+
+  // 1) SerpApi / Google Jobs source
+  if (jobSource === 'serpapi') {
+    applyUrl = (directUrl && !isReedSearchUrl) ? directUrl : googleJobsUrl;
+    applyLabel = 'Find on Google Jobs';
+    applyNote = 'Opens this job on Google Jobs.';
+  }
+  // 2) JobsPikr source
+  else if (jobSource === 'jobspikr') {
+    applyUrl = (directUrl && !isReedSearchUrl) ? directUrl : googleJobsUrl;
+    applyLabel = directUrl && !isReedSearchUrl ? 'Apply on Company Site' : 'Find this Job';
+    applyNote = directUrl && !isReedSearchUrl ? 'Opens the original job listing.' : 'Opens a Google Jobs search for this role.';
+  }
+  // 3) Reed job with a direct Reed job URL (e.g. reed.co.uk/jobs/some-slug/12345)
+  else if ((jobSource === 'reed' || jobSource === 'reed_api') && isReedDirectUrl) {
+    applyUrl = directUrl;
+    applyLabel = 'View Job on Reed.co.uk';
+    applyNote = 'Opens this job listing directly on Reed.';
+  }
+  // 4) Reed job but only has a search URL or no URL — use Google Jobs instead
+  else if (jobSource === 'reed' || jobSource === 'reed_api') {
+    applyUrl = googleJobsUrl;
+    applyLabel = 'Find this Job';
+    applyNote = 'Opens a Google Jobs search for this role.';
+  }
+  // 5) Fallback / mock data
+  else if (jobSource === 'fallback') {
+    applyUrl = directUrl || googleJobsUrl;
+    applyLabel = 'Find this Job';
+    applyNote = 'Opens a Google Jobs search for this role.';
+  }
+  // 6) Any other synced source with a direct URL
+  else if (directUrl && !isReedSearchUrl) {
+    applyUrl = directUrl;
+    applyLabel = 'View Original Listing';
+    applyNote = 'Opens the original job listing.';
+  }
+  // 7) Default fallback — Google Jobs search
+  else {
+    applyUrl = googleJobsUrl;
+    applyLabel = 'Find this Job';
+    applyNote = 'Opens a Google Jobs search for this role.';
+  }
 
   const postedLabel = job.posted || job.posted_at
     ? (job.posted || new Date(job.posted_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }))
@@ -92,7 +143,18 @@ const JobDetailModal = ({ job, onClose }) => {
               <h2 className="text-2xl font-bold text-gray-900 mb-1 leading-tight">
                 {job.title}
               </h2>
-              <p className="text-base font-semibold text-gray-600">{job.company}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-base font-semibold text-gray-600">{job.company}</p>
+                {jobSource === 'serpapi' && (
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Google Jobs</span>
+                )}
+                {jobSource === 'jobspikr' && (
+                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs font-medium rounded-full">JobsPikr</span>
+                )}
+                {jobSource === 'reed' && (
+                  <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">Reed</span>
+                )}
+              </div>
             </div>
 
             {/* Meta pills */}
@@ -188,13 +250,13 @@ const JobDetailModal = ({ job, onClose }) => {
             {/* CTA */}
             <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
               <a
-                href={reedSearchUrl}
+                href={applyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-semibold py-3 px-6 rounded-xl transition-all hover:shadow-lg hover:shadow-green-500/30 text-sm"
               >
                 <ExternalLink className="w-4 h-4" />
-                Apply on Reed.co.uk
+                {applyLabel}
               </a>
               <button
                 onClick={onClose}
@@ -205,7 +267,7 @@ const JobDetailModal = ({ job, onClose }) => {
             </div>
 
             <p className="text-xs text-gray-400 text-center mt-3">
-              Clicking "Apply on Reed.co.uk" opens a live job search for this role on Reed.
+              {applyNote}
             </p>
           </div>
         </div>

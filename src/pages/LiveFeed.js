@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Zap,
@@ -14,14 +15,91 @@ import {
   Sparkles,
   Linkedin,
   ExternalLink,
+  Search,
 } from 'lucide-react';
-import liveFeedService, { fetchLinkedInJobs } from '../services/liveFeed.service';
+import liveFeedService, { fetchLinkedInJobs, fetchReedJobsWithRetry } from '../services/liveFeed.service';
 import LiveFeedCard from '../components/LiveFeedCard';
 import JobDetailModal from '../components/JobDetailModal';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { useAuth } from '../contexts/AuthContext';
+
+// Industry presets for quick search
+const INDUSTRY_PRESETS = [
+  { label: 'All Graduate',          keywords: 'graduate intern placement' },
+  { label: 'Civil Engineering',     keywords: 'graduate civil engineer structural engineer placement' },
+  { label: 'Mechanical Engineering', keywords: 'graduate mechanical engineer design engineer placement' },
+  { label: 'Electrical Engineering', keywords: 'graduate electrical engineer electronics engineer placement' },
+  { label: 'Software & Tech',       keywords: 'graduate software developer junior developer full stack' },
+  { label: 'Data & Analytics',      keywords: 'graduate data analyst data science intern' },
+  { label: 'Engineering',           keywords: 'graduate engineer engineering placement trainee' },
+  { label: 'Finance',               keywords: 'graduate finance accountant analyst trainee' },
+  { label: 'Marketing',             keywords: 'graduate marketing digital content intern' },
+  { label: 'Healthcare & NHS',      keywords: 'graduate healthcare NHS clinical trainee' },
+  { label: 'Law & Legal',           keywords: 'graduate solicitor legal paralegal law trainee' },
+  { label: 'Business & Consulting', keywords: 'graduate business consultant management trainee' },
+  { label: 'Design & Creative',     keywords: 'graduate designer UX creative graphic' },
+  { label: 'HR & Recruitment',      keywords: 'graduate HR human resources recruitment' },
+  { label: 'Sales',                 keywords: 'graduate sales business development' },
+];
+
+/**
+ * Detect the best industry preset from a user's profile.
+ * Scans headline, title, degree, bio, skills, and industry fields
+ * for keyword matches against our preset list.
+ */
+const detectIndustryFromProfile = (userProfile) => {
+  if (!userProfile) return null;
+
+  const p = userProfile.profile || userProfile;
+
+  // Gather all text signals from the profile
+  const signals = [
+    p.industry,
+    p.headline,
+    p.title,
+    p.degree,
+    p.course,
+    p.bio,
+    p.experience,
+    ...(Array.isArray(p.skills) ? p.skills : []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (!signals.trim()) return null;
+
+  // Keyword → preset mapping (order = priority)
+  const rules = [
+    { match: ['software', 'developer', 'coding', 'fullstack', 'frontend', 'backend', 'javascript', 'python', 'react', 'programming', 'computer science', 'IT', 'tech'], preset: 'Software & Tech' },
+    { match: ['data', 'analyst', 'analytics', 'machine learning', 'statistics', 'data science'], preset: 'Data & Analytics' },
+    { match: ['civil', 'mechanical', 'electrical', 'structural', 'engineer', 'engineering', 'automotive', 'aerospace'], preset: 'Engineering' },
+    { match: ['finance', 'accountant', 'accounting', 'banking', 'actuarial', 'financial', 'audit', 'tax'], preset: 'Finance' },
+    { match: ['marketing', 'digital marketing', 'content', 'social media', 'seo', 'advertising', 'brand'], preset: 'Marketing' },
+    { match: ['healthcare', 'nhs', 'nursing', 'clinical', 'medical', 'pharmacy', 'health', 'biomedical'], preset: 'Healthcare & NHS' },
+    { match: ['law', 'legal', 'solicitor', 'barrister', 'paralegal', 'criminology'], preset: 'Law & Legal' },
+    { match: ['business', 'management', 'consultant', 'consulting', 'strategy', 'mba'], preset: 'Business & Consulting' },
+    { match: ['design', 'ux', 'ui', 'graphic', 'creative', 'illustration', 'art', 'visual'], preset: 'Design & Creative' },
+    { match: ['hr', 'human resources', 'recruitment', 'talent', 'people'], preset: 'HR & Recruitment' },
+    { match: ['sales', 'business development', 'account manager', 'retail'], preset: 'Sales' },
+    { match: ['psychology', 'counselling', 'therapy', 'mental health'], preset: 'Healthcare & NHS' },
+    { match: ['education', 'teaching', 'teacher', 'lecturer'], preset: 'All Graduate' },
+  ];
+
+  for (const rule of rules) {
+    if (rule.match.some((kw) => signals.includes(kw.toLowerCase()))) {
+      return INDUSTRY_PRESETS.find((p) => p.label === rule.preset) || null;
+    }
+  }
+
+  return null;
+};
 
 const LiveFeed = () => {
+  const { userProfile } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [jobs, setJobs] = useState([]);
   const [linkedInJobs, setLinkedInJobs] = useState([]);
   const [linkedInLoading, setLinkedInLoading] = useState(true);
@@ -29,8 +107,47 @@ const LiveFeed = () => {
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [searchKeywords, setSearchKeywords] = useState('graduate');
+  const [searchInput, setSearchInput] = useState('');
+  const [activePreset, setActivePreset] = useState('All Graduate');
+  const [profileDetected, setProfileDetected] = useState(false);
   // Modal lifted to page level to prevent framer-motion key conflicts
   const [selectedJob, setSelectedJob] = useState(null);
+
+  // Priority 1: URL ?keywords= param (from notification click)
+  // Priority 2: Profile-based auto-detection
+  // Priority 3: Default "graduate"
+  useEffect(() => {
+    if (profileDetected) return;
+
+    // Check for URL param first (e.g. from dashboard notification)
+    const urlKeywords = searchParams.get('keywords');
+    const urlPreset = searchParams.get('preset');
+    if (urlKeywords) {
+      setSearchKeywords(urlKeywords);
+      setSearchInput(urlKeywords.replace('graduate ', ''));
+      if (urlPreset) {
+        setActivePreset(urlPreset);
+      } else {
+        // Try to find a matching preset
+        const match = INDUSTRY_PRESETS.find(p => p.keywords === urlKeywords);
+        setActivePreset(match ? match.label : 'All Graduate');
+      }
+      setProfileDetected(true);
+      return;
+    }
+
+    // Fall back to profile detection
+    if (!userProfile) return;
+    const detected = detectIndustryFromProfile(userProfile);
+    if (detected) {
+      setSearchKeywords(detected.keywords);
+      setActivePreset(detected.label);
+      setProfileDetected(true);
+    } else {
+      setProfileDetected(true);
+    }
+  }, [userProfile, profileDetected, searchParams]);
 
   // Deduplicate jobs by reed_job_id then title|company
   const deduplicateJobs = (rawJobs) => {
@@ -53,14 +170,18 @@ const LiveFeed = () => {
       setLoading(true);
       setError(null);
 
-      const raw = await liveFeedService.fetchReedJobs({
-        keywords: 'graduate',
+      const raw = await fetchReedJobsWithRetry({
+        keywords: searchKeywords,
         location: 'United Kingdom',
-        limit: 20,
+        limit: 25,
       });
 
       if (!raw || raw.length === 0) {
-        setError('No jobs available right now. Please try again in a moment.');
+        setError(
+          searchKeywords !== 'graduate'
+            ? `No "${searchKeywords}" jobs found right now. Try a different industry or "All Graduate".`
+            : 'No jobs available right now. Please try again in a moment.'
+        );
         return;
       }
 
@@ -92,7 +213,7 @@ const LiveFeed = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchKeywords]);
 
   // Fetch LinkedIn / Indeed jobs via JSearch proxy
   const fetchLinkedIn = useCallback(async () => {
@@ -168,8 +289,15 @@ const LiveFeed = () => {
   <>
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-green-600 via-teal-600 to-blue-600 text-white pt-32 pb-12">
+      <div className="bg-gradient-to-r from-green-600 via-teal-600 to-blue-600 text-white pt-6 pb-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Back link */}
+          <button
+            onClick={() => navigate('/opportunities')}
+            className="inline-flex items-center gap-1.5 text-sm text-green-100 hover:text-white mb-6 transition-colors"
+          >
+            ← Back to All Opportunities
+          </button>
           <div className="text-center">
             {/* Icon */}
             <motion.div
@@ -186,10 +314,14 @@ const LiveFeed = () => {
               🔥 Live Job Feed
             </h1>
             <p className="text-xl text-green-100 mb-2">
-              Jobs posted in the last 3 hours • Low competition • 2-hour window
+              {activePreset && activePreset !== 'All Graduate'
+                ? `${activePreset} jobs • Live from Reed • Low competition`
+                : 'Jobs posted in the last 3 hours • Low competition • 2-hour window'}
             </p>
             <p className="text-sm text-green-200">
-              Apply fast before these opportunities disappear!
+              {activePreset && activePreset !== 'All Graduate'
+                ? `Personalised for your ${activePreset} profile — change anytime below`
+                : 'Apply fast before these opportunities disappear!'}
             </p>
 
             {/* Stats */}
@@ -213,49 +345,117 @@ const LiveFeed = () => {
         </div>
       </div>
 
-      {/* Filters & Actions */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            {/* Filter Buttons */}
-            <div className="flex items-center gap-2 overflow-x-auto">
-              <Filter className="w-5 h-5 text-gray-400 flex-shrink-0" />
-              
-              {[
-                { id: 'all', label: 'All Jobs', icon: null },
-                { id: 'low-competition', label: 'Low Competition', icon: TrendingUp },
-                { id: 'urgent', label: 'Urgent (<30m)', icon: Clock },
-                { id: 'Engineering', label: 'Engineering', icon: null },
-                { id: 'Data & Analytics', label: 'Data', icon: null },
-                { id: 'Marketing', label: 'Marketing', icon: null }
-              ].map((filterOption) => {
-                const Icon = filterOption.icon;
-                return (
-                  <button
-                    key={filterOption.id}
-                    onClick={() => setFilter(filterOption.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-all whitespace-nowrap ${
-                      filter === filterOption.id
-                        ? 'bg-green-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {Icon && <Icon className="w-4 h-4" />}
-                    {filterOption.label}
-                  </button>
-                );
-              })}
+      {/* Live Update Info Banner — top of page so users know this is real-time */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-30">
+        <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Clock className="w-5 h-5 text-white" />
             </div>
+            <div>
+              <h4 className="text-sm font-bold text-gray-900">
+                Live Updates — Jobs refresh every 30 minutes
+              </h4>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                These roles were posted in the last few hours and receive <strong>far fewer applications</strong>.
+                Save any job you're interested in — listings are removed after 2 hours to keep the feed ultra-fresh.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Refresh Button */}
+      {/* Search & Industry Selection */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-3">
+          {/* Search Bar */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (searchInput.trim()) {
+                setSearchKeywords(searchInput.trim());
+                setActivePreset('');
+              }
+            }}
+            className="flex items-center gap-3"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search jobs by keyword (e.g. software engineer, data analyst, marketing...)"
+                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition-all"
+              />
+            </div>
             <button
+              type="submit"
+              className="px-6 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition-all whitespace-nowrap"
+            >
+              Search
+            </button>
+            <button
+              type="button"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-all disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
             </button>
+          </form>
+
+          {/* Industry Preset Chips */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex-shrink-0 mr-1">Industry:</span>
+            {INDUSTRY_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                onClick={() => {
+                  setSearchKeywords(preset.keywords);
+                  setSearchInput('');
+                  setActivePreset(preset.label);
+                }}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
+                  activePreset === preset.label
+                    ? 'bg-green-600 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Filter Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            {[
+              { id: 'all', label: 'All Jobs', icon: null },
+              { id: 'low-competition', label: 'Low Competition', icon: TrendingUp },
+              { id: 'urgent', label: 'Urgent (<30m)', icon: Clock },
+            ].map((filterOption) => {
+              const Icon = filterOption.icon;
+              return (
+                <button
+                  key={filterOption.id}
+                  onClick={() => setFilter(filterOption.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs transition-all whitespace-nowrap ${
+                    filter === filterOption.id
+                      ? 'bg-green-600 text-white shadow-md'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {Icon && <Icon className="w-3.5 h-3.5" />}
+                  {filterOption.label}
+                </button>
+              );
+            })}
+            {searchKeywords !== 'graduate' && (
+              <span className="text-xs text-gray-500 ml-2">
+                Showing results for: <strong className="text-green-700">{searchKeywords}</strong>
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -388,25 +588,7 @@ const LiveFeed = () => {
           </div>
         )}
 
-        {/* Info Banner */}
-        <div className="mt-12 p-6 bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200 rounded-2xl">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-              <Clock className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h4 className="text-lg font-bold text-gray-900 mb-2">
-                Why is there a 2-hour window?
-              </h4>
-              <p className="text-sm text-gray-700 leading-relaxed">
-                Jobs posted in the last few hours receive <strong>far fewer applications</strong>, 
-                giving you a competitive advantage. We automatically refresh this feed every 30 minutes 
-                and remove jobs after 2 hours to keep it ultra-fresh. Save any job you're interested 
-                in to your <strong>"Saved Jobs"</strong> list so you don't lose it!
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* (Info banner moved to top of page) */}
       </div>
     </div>
 

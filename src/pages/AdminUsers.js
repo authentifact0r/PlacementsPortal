@@ -284,7 +284,7 @@ const AdminUsers = () => {
   // Loading screen
   if (loading) {
     return (
-      <div className="pt-24 min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
           <p className="text-gray-600">Loading users...</p>
@@ -294,7 +294,7 @@ const AdminUsers = () => {
   }
 
   return (
-    <div className="pt-24 min-h-screen bg-gray-50">
+    <div className="bg-gray-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-amber-400 to-amber-600 text-white px-6 py-6 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">

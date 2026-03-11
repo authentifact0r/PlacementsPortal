@@ -3,13 +3,14 @@
  * Allows users to edit their profile information
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, Mail, Briefcase, Upload, Save } from 'lucide-react';
+import { X, User, Mail, Briefcase, Upload, Save, Camera, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { db, storage } from '../services/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const ProfileSettingsModal = ({ isOpen, onClose }) => {
   const { currentUser, userProfile } = useAuth();
@@ -26,6 +27,55 @@ const ProfileSettingsModal = ({ isOpen, onClose }) => {
   });
 
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Handle photo file upload to Firebase Storage
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      showError('Please select an image file (JPG, PNG, etc.)');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showError('Image too large. Maximum size is 5MB.');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    try {
+      // Upload to Firebase Storage
+      const fileName = `${currentUser.uid}_${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, `profile-photos/${currentUser.uid}/${fileName}`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      setFormData(prev => ({ ...prev, photoURL: downloadURL }));
+      showSuccess('Photo uploaded! Click Save Changes to apply.');
+    } catch (err) {
+      console.error('Photo upload error:', err);
+      // Fallback: use Base64 data URL if Storage fails
+      try {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormData(prev => ({ ...prev, photoURL: reader.result }));
+          showSuccess('Photo ready! Click Save Changes to apply.');
+        };
+        reader.readAsDataURL(file);
+      } catch (fallbackErr) {
+        showError('Failed to upload photo. Please try again.');
+      }
+    } finally {
+      setUploadingPhoto(false);
+      // Reset file input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     if (userProfile) {
@@ -127,21 +177,44 @@ const ProfileSettingsModal = ({ isOpen, onClose }) => {
           <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
             {/* Avatar Section */}
             <div className="flex items-center gap-6">
-              <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                {formData.photoURL ? (
-                  <img
-                    src={formData.photoURL}
-                    alt="Profile"
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <User className="w-12 h-12 text-white" />
-                )}
+              <div className="relative group">
+                <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center overflow-hidden">
+                  {formData.photoURL ? (
+                    <img
+                      src={formData.photoURL}
+                      alt="Profile"
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-12 h-12 text-white" />
+                  )}
+                </div>
+                {/* Click-to-upload overlay on avatar */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                  {uploadingPhoto ? (
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  ) : (
+                    <Camera className="w-6 h-6 text-white" />
+                  )}
+                </button>
               </div>
               <div className="flex-1">
                 <label className="block text-sm font-semibold text-slate-300 mb-2">
-                  Profile Photo URL (optional)
+                  Profile Photo
                 </label>
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -149,15 +222,19 @@ const ProfileSettingsModal = ({ isOpen, onClose }) => {
                     value={formData.photoURL}
                     onChange={handleChange}
                     placeholder="https://example.com/photo.jpg"
-                    className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors"
+                    className="flex-1 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-purple-500 transition-colors text-sm"
                   />
                   <button
-                    className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg hover:bg-slate-600 transition-colors text-slate-300"
-                    title="Upload photo (coming soon)"
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="px-4 py-2 bg-purple-600 border border-purple-500 rounded-lg hover:bg-purple-700 transition-colors text-white disabled:opacity-50"
+                    title="Upload photo from your device"
                   >
-                    <Upload className="w-5 h-5" />
+                    {uploadingPhoto ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
                   </button>
                 </div>
+                <p className="text-xs text-slate-500 mt-1">Click the avatar or upload button to add a photo (max 5MB)</p>
               </div>
             </div>
 

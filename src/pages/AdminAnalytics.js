@@ -291,7 +291,7 @@ const AdminAnalytics = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="bg-gray-50 flex items-center justify-center" style={{ minHeight: '100%' }}>
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-indigo-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading analytics...</p>
@@ -305,7 +305,7 @@ const AdminAnalytics = () => {
   }
 
   return (
-    <div className="pt-24 min-h-screen bg-gray-50">
+    <div className="bg-gray-50" style={{ minHeight: '100%' }}>
       {/* Header */}
       <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-8 py-8 mb-8">
         <div className="flex items-center justify-between mb-4">

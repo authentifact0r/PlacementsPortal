@@ -118,7 +118,7 @@ const AdminDashboardPremium = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#0f172a] via-purple-900 to-purple-700 pt-32 pb-16">
+      <div className="bg-gradient-to-r from-[#0f172a] via-purple-900 to-purple-700 pt-12 pb-16">
         <div className="container mx-auto px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

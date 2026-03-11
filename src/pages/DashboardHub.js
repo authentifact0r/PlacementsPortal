@@ -153,9 +153,10 @@ const DashboardHub = () => {
   const role = userProfile?.role || 'student';
   const theme = ROLE_THEME[role] || ROLE_THEME.student;
 
-  // Redirect admins to dedicated admin dashboard
+  // Redirect to role-specific dashboards
   useEffect(() => {
     if (role === 'admin') navigate('/admin/dashboard', { replace: true });
+    if (role === 'student' || role === 'graduate') navigate('/dashboard/student', { replace: true });
   }, [role, navigate]);
 
   const [stats, setStats]               = useState({ applications: 0, events: 0, jobs: 0, sessions: 0 });
@@ -297,7 +298,7 @@ const DashboardHub = () => {
 
   if (loadingData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex items-center justify-center bg-gray-50" style={{ minHeight: '100%' }}>
         <div className="text-center">
           <Loader className="w-8 h-8 text-purple-500 animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-500 font-medium">Loading your dashboard…</p>
@@ -307,10 +308,10 @@ const DashboardHub = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="bg-gray-50" style={{ minHeight: '100%' }}>
 
       {/* ── Hero Header ─────────────────────────────────────────────── */}
-      <div className={`bg-gradient-to-br ${theme.gradient} pt-24 pb-16 relative overflow-hidden`}>
+      <div className={`bg-gradient-to-br ${theme.gradient} pt-6 pb-16 relative overflow-hidden`}>
         {/* Animated orbs */}
         <motion.div
           animate={{ scale: [1, 1.2, 1], opacity: [0.15, 0.25, 0.15] }}

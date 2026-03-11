@@ -354,7 +354,7 @@ const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="bg-gray-50 flex items-center justify-center" style={{ minHeight: '100%' }}>
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-amber-500 animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-500 font-medium">Loading platform data…</p>
@@ -364,10 +364,10 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="bg-gray-50" style={{ minHeight: '100%' }}>
 
       {/* ── Hero ── */}
-      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-orange-600 pt-24 pb-8 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-orange-600 pt-6 pb-8 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMwLTIuMi0xLjgtNC00LTRzLTQgMS44LTQgNCAxLjggNCA0IDQgNC0xLjggNC00eiIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiIHN0cm9rZS13aWR0aD0iMSIvPjwvZz48L3N2Zz4=')] opacity-20" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="flex items-center justify-between">
@@ -426,7 +426,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* ── Admin Search Panel ── */}
-      <div className="bg-white border-b border-gray-200 sticky top-20 z-30 shadow-sm">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <form onSubmit={handleAdminSearch} className="flex gap-3 items-center">
             {/* Filter pills */}

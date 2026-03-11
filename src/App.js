@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ApplicationProvider } from './contexts/ApplicationContext';
 
 // Layout
 import NavbarSaaS from './components/NavbarSaaS';
@@ -48,6 +49,12 @@ import TalentPipeline from './pages/TalentPipeline';
 import OutreachHub from './pages/OutreachHub';
 import RevenueDashboard from './pages/RevenueDashboard';
 
+// Job Application Tracker
+import JobTracker from './pages/JobTracker';
+
+// Complete Profile
+import CompleteProfile from './pages/CompleteProfile';
+
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { currentUser, userProfile, loading } = useAuth();
@@ -85,39 +92,63 @@ const PublicRoute = ({ children }) => {
 };
 
 
+/*
+ * AppContent
+ * ──────────────────────────────────────────────────────────────────────
+ * Root layout uses a CSS Grid with two rows:
+ *   Row 1 — fixed-height navbar (h-20 = 5rem)
+ *   Row 2 — flex-1 content area that fills the remaining viewport
+ *
+ * The <main> element has overflow-y:auto so each page scrolls
+ * independently without pushing the navbar off-screen or triggering
+ * browser-level scrollbars.
+ *
+ * Dashboard routes (student, employer, admin) fill 100% of the
+ * available height. Public pages can scroll normally inside <main>.
+ * ──────────────────────────────────────────────────────────────────────
+ */
 function AppContent() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col" style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
+      {/* Row 1 — Navbar: fixed height, never scrolls */}
       <NavbarSaaS />
-      <main className="flex-grow">
+
+      {/* Row 2 — Scrollable content area starts below the fixed navbar.
+           marginTop: 5rem matches the navbar height (h-20).
+           Sticky headers inside pages can use top:0 — they'll stick
+           at the top of <main>'s scroll area, visually just below the navbar. */}
+      <main
+        className="flex-1 light-scroll"
+        style={{ overflowY: 'auto', overflowX: 'hidden', minHeight: 0, marginTop: '5rem' }}
+      >
         <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<HomeSaaS />} />
-          <Route path="/opportunities" element={<OpportunitiesPremium />} />
-          <Route path="/opportunities/:id" element={<JobDetail />} />
-          <Route path="/opportunities/alternatives" element={<JobAlternatives />} />
-          <Route path="/live-feed" element={<LiveFeed />} />
-          <Route path="/apply/:jobId" element={<JobRedirect />} />
-          <Route path="/employers" element={<EmployersPremium />} />
-          <Route path="/resources" element={<Resources />} />
-          <Route path="/resources/*" element={<Resources />} />
-          <Route path="/community" element={<Community />} />
-          <Route path="/community/events" element={<Community />} />
-          <Route path="/community/workshops" element={<Community />} />
-          <Route path="/community/courses" element={<Community />} />
-          <Route path="/community/industry-insight" element={<Community />} />
-          <Route path="/student-support" element={<StudentSupport />} />
-          <Route path="/global-students" element={<GlobalStudents />} />
-          <Route path="/pitch/:pitchId" element={<PublicPitchPage />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
+          <Route path="/" element={<><HomeSaaS /><Footer /></>} />
+          <Route path="/opportunities" element={<><OpportunitiesPremium /><Footer /></>} />
+          <Route path="/opportunities/:id" element={<><JobDetail /><Footer /></>} />
+          <Route path="/opportunities/alternatives" element={<><JobAlternatives /><Footer /></>} />
+          <Route path="/live-feed" element={<><LiveFeed /><Footer /></>} />
+          <Route path="/apply/:jobId" element={<><JobRedirect /><Footer /></>} />
+          <Route path="/employers" element={<><EmployersPremium /><Footer /></>} />
+          <Route path="/resources" element={<><Resources /><Footer /></>} />
+          <Route path="/resources/*" element={<><Resources /><Footer /></>} />
+          <Route path="/community" element={<><Community /><Footer /></>} />
+          <Route path="/community/events" element={<><Community /><Footer /></>} />
+          <Route path="/community/workshops" element={<><Community /><Footer /></>} />
+          <Route path="/community/courses" element={<><Community /><Footer /></>} />
+          <Route path="/community/industry-insight" element={<><Community /><Footer /></>} />
+          <Route path="/student-support" element={<><StudentSupport /><Footer /></>} />
+          <Route path="/global-students" element={<><GlobalStudents /><Footer /></>} />
+          <Route path="/pitch/:pitchId" element={<><PublicPitchPage /><Footer /></>} />
+          <Route path="/about" element={<><About /><Footer /></>} />
+          <Route path="/contact" element={<><Contact /><Footer /></>} />
           {/* Pricing — /pricing auto-detects role; sub-routes force a specific view */}
-          <Route path="/pricing"          element={<Pricing />} />
-          <Route path="/pricing/student"  element={<Pricing />} />
-          <Route path="/pricing/employer" element={<Pricing />} />
+          <Route path="/pricing"          element={<><Pricing /><Footer /></>} />
+          <Route path="/pricing/student"  element={<><Pricing /><Footer /></>} />
+          <Route path="/pricing/employer" element={<><Pricing /><Footer /></>} />
 
           {/* Post-payment landing */}
-          <Route path="/checkout/success" element={<CheckoutSuccess />} />
+          <Route path="/checkout/success" element={<><CheckoutSuccess /><Footer /></>} />
 
           {/* Admin tools */}
           <Route path="/admin/premium"   element={<AdminPremiumGrant />} />
@@ -244,11 +275,30 @@ function AppContent() {
             }
           />
 
+          {/* Job Application Tracker */}
+          <Route
+            path="/job-tracker"
+            element={
+              <ProtectedRoute allowedRoles={['student', 'graduate']}>
+                <JobTracker />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Complete Profile */}
+          <Route
+            path="/complete-profile"
+            element={
+              <ProtectedRoute allowedRoles={['student', 'graduate']}>
+                <CompleteProfile />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      <Footer />
     </div>
   );
 }
@@ -258,7 +308,9 @@ function App() {
     <Router>
       <AuthProvider>
         <ToastProvider>
-          <AppContent />
+          <ApplicationProvider>
+            <AppContent />
+          </ApplicationProvider>
         </ToastProvider>
       </AuthProvider>
     </Router>

@@ -215,7 +215,7 @@ const CoachesDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
+    <div className="bg-gray-50" style={{ minHeight: '100%' }}>
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 via-purple-700 to-blue-600 text-white">
         <div className="container mx-auto px-6 lg:px-8 py-12">

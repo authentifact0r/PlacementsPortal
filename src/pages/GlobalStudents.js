@@ -23,7 +23,7 @@ const GlobalStudents = () => {
   return (
     <div className="min-h-screen bg-[#0f172a]">
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
+      <section className="relative pt-12 pb-20 overflow-hidden">
         <div className="absolute inset-0">
           <img
             src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1600&auto=format&fit=crop"
